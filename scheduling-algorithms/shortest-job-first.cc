@@ -1,7 +1,6 @@
 #include <iostream>
-#include <queue>
 #include <vector>
-#include <functional>
+#include <queue>
 #include <algorithm>
 
 struct Process {
@@ -11,60 +10,64 @@ struct Process {
     size_t completion_time = 0;
     size_t turn_around_time = 0;
     size_t waiting_time = 0;
-    size_t response_time = 0;
+    size_t response_time = -1;  // -1 indicates response time is not yet assigned
+};
+
+// Custom comparator for priority queue (SJF Scheduling)
+struct Compare {
+    bool operator()(const Process* p1, const Process* p2) {
+        return (p1->burst_time == p2->burst_time) ? (p1->arrival_time > p2->arrival_time) : (p1->burst_time > p2->burst_time);
+    }
 };
 
 // Function to calculate completion, turnaround, waiting, and response times
-void calculate_times(std::vector<Process>& vProcess) {
-    size_t current_time = 0;
-    size_t completed = 0;
+void calculate_times(std::vector<Process>& processes) {
+    size_t n = processes.size();
+    size_t completed = 0, current_time = 0, index = 0;
 
-    // Sort processes by arrival time (to process them in order)
-    std::sort(vProcess.begin(), vProcess.end(), [](const Process& p1, const Process& p2) {
-            return p1.arrival_time < p2.arrival_time;
-            });
+    // Sort processes by arrival time
+    std::sort(processes.begin(), processes.end(), [](const Process& p1, const Process& p2) {
+        return p1.arrival_time < p2.arrival_time;
+    });
 
-    // Min-heap (priority queue) to select the shortest job first
-    std::priority_queue<Process, std::vector<Process>, std::function<bool(const Process&, const Process&)>> pq(
-            [](const Process& p1, const Process& p2) {
-            return (p1.burst_time == p2.burst_time) ? (p1.arrival_time > p2.arrival_time) : (p1.burst_time > p2.burst_time);
-            });
+    std::priority_queue<Process*, std::vector<Process*>, Compare> pq;
 
-    size_t index = 0;
-    while (completed < vProcess.size()) {
-        // Push all processes that have arrived into the priority queue
-        while (index < vProcess.size() && vProcess[index].arrival_time <= current_time) {
-            pq.push(vProcess[index]);
+    while (completed < n) {
+        while (index < n && processes[index].arrival_time <= current_time) {
+            pq.push(&processes[index]);
             index++;
         }
 
         if (!pq.empty()) {
-            Process p = pq.top();
+            Process* p = pq.top();
             pq.pop();
 
-            size_t process_index = p.id - 1;
+            p->response_time = (p->response_time == -1) ? current_time - p->arrival_time : p->response_time;
+            p->completion_time = current_time + p->burst_time;
+            p->turn_around_time = p->completion_time - p->arrival_time;
+            p->waiting_time = p->turn_around_time - p->burst_time;
 
-            // Set completion time, turnaround time, waiting time, and response time
-            vProcess[process_index].completion_time = current_time + p.burst_time;
-            vProcess[process_index].turn_around_time = vProcess[process_index].completion_time - p.arrival_time;
-            vProcess[process_index].waiting_time = vProcess[process_index].turn_around_time - p.burst_time;
-            vProcess[process_index].response_time = vProcess[process_index].waiting_time;
-
-            current_time += p.burst_time;
+            current_time += p->burst_time;
             completed++;
         } else {
-            current_time++; // Move time forward if no process is available
+            if (index < n) {
+                current_time = processes[index].arrival_time;
+            }
         }
     }
 }
 
-// Function to display the process details
-void print_processes(const std::vector<Process>& vProcess) {
-    std::cout << "\nProcess\tAT\tBT\tCT\tTAT\tWT\tRT\n";
-    for (const auto& p : vProcess) {
-        std::cout << p.id << "\t" << p.arrival_time << "\t" << p.burst_time << "\t"
-            << p.completion_time << "\t" << p.turn_around_time << "\t"
-            << p.waiting_time << "\t" << p.response_time << "\n";
+// Function to display process details
+void print_processes(const std::vector<Process>& processes) {
+    std::cout << "\nPID\tAT\tBT\tCT\tTAT\tWT\tRT\n";
+    for (const auto& p : processes) {
+        std::cout << p.id << "\t"
+                  << p.arrival_time << "\t"
+                  << p.burst_time << "\t"
+                  << p.completion_time << "\t"
+                  << p.turn_around_time << "\t"
+                  << p.waiting_time << "\t"
+                  << p.response_time << "\n";
     }
 }
 
@@ -73,19 +76,19 @@ int main() {
     std::cout << "Enter number of processes: ";
     std::cin >> n;
 
-    std::vector<Process> vProcess(n);
+    std::vector<Process> processes(n);
     for (size_t i = 0; i < n; i++) {
-        vProcess[i].id = i + 1;
+        processes[i].id = i + 1;
 
-        std::cout << "Enter arrival time for Process " << vProcess[i].id << ": ";
-        std::cin >> vProcess[i].arrival_time;
+        std::cout << "Enter arrival time for Process " << processes[i].id << ": ";
+        std::cin >> processes[i].arrival_time;
 
-        std::cout << "Enter burst time for Process " << vProcess[i].id << ": ";
-        std::cin >> vProcess[i].burst_time;
+        std::cout << "Enter burst time for Process " << processes[i].id << ": ";
+        std::cin >> processes[i].burst_time;
     }
 
-    calculate_times(vProcess);
-    print_processes(vProcess);
+    calculate_times(processes);
+    print_processes(processes);
 
     return 0;
 }
